@@ -1,17 +1,16 @@
 /**
- * 零依赖本地预览服务器：
- * - 静态：GET /
- * - API：POST /api/generate
+ * 生产环境通用服务器 (适配 微信云托管 / Zeabur / Vercel)
+ * - 静态服务：GET /
+ * - 接口服务：POST /api/generate
  *
- * 运行：node server.js（会自动读取 .env 文件）
- * 或者：DEEPSEEK_API_KEY=xxx node server.js
+ * 运行：node server.js
  */
 
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
 
-// 自动读取 .env 文件（零依赖实现）
+// --- 1. 自动读取 .env 文件 (仅用于本地开发) ---
 try {
   const envPath = path.join(__dirname, '.env');
   if (fs.existsSync(envPath)) {
@@ -30,12 +29,14 @@ try {
     });
   }
 } catch (e) {
-  // 忽略 .env 读取错误
+  // 生产环境通常不使用 .env 文件，忽略即可
 }
 
 const apiGenerate = require("./api/generate.js");
 
-const PORT = Number(process.env.PORT || 8787);
+// --- 2. 端口配置 (核心修改) ---
+// 微信云托管必须监听 80 端口，这里通过 process.env.PORT 自动适配
+const PORT = Number(process.env.PORT || 80); 
 const INDEX_PATH = path.join(__dirname, "index.html");
 
 function send(res, statusCode, headers, body) {
@@ -48,7 +49,6 @@ function readJson(req) {
     let raw = "";
     req.on("data", (chunk) => {
       raw += chunk;
-      // 防止过大 body
       if (raw.length > 2_000_000) {
         reject(new Error("Request body too large"));
         req.destroy();
@@ -69,15 +69,18 @@ const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host}`);
 
+    // 静态主页
     if (req.method === "GET" && url.pathname === "/") {
       const html = fs.readFileSync(INDEX_PATH, "utf8");
       return send(res, 200, { "Content-Type": "text/html; charset=utf-8" }, html);
     }
 
-    if (req.method === "GET" && url.pathname === "/healthz") {
+    // 健康检查 (云托管部署时会用到)
+    if (req.method === "GET" && (url.pathname === "/healthz" || url.pathname === "/check")) {
       return send(res, 200, { "Content-Type": "text/plain; charset=utf-8" }, "ok");
     }
 
+    // API 接口
     if (url.pathname === "/api/generate") {
       if (req.method !== "POST") {
         return send(
@@ -92,20 +95,17 @@ const server = http.createServer(async (req, res) => {
       return apiGenerate(req, res);
     }
 
-    // 简单静态文件兜底（只允许同目录文件，避免目录穿越）
+    // 静态资源文件支持 (CSS/JS)
     if (req.method === "GET") {
       const safePath = path.normalize(url.pathname).replace(/^(\.\.[/\\])+/, "");
       const filePath = path.join(__dirname, safePath);
       if (filePath.startsWith(__dirname) && fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
         const ext = path.extname(filePath).toLowerCase();
         const type =
-          ext === ".html"
-            ? "text/html; charset=utf-8"
-            : ext === ".js"
-              ? "text/javascript; charset=utf-8"
-              : ext === ".css"
-                ? "text/css; charset=utf-8"
-                : "application/octet-stream";
+          ext === ".html" ? "text/html; charset=utf-8" :
+          ext === ".js" ? "text/javascript; charset=utf-8" :
+          ext === ".css" ? "text/css; charset=utf-8" : 
+          "application/octet-stream";
         const buf = fs.readFileSync(filePath);
         return send(res, 200, { "Content-Type": type }, buf);
       }
@@ -127,7 +127,7 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-// 获取本机局域网 IP（用于移动端访问）
+// 获取本机 IP 方便测试
 function getLocalIP() {
   const os = require('os');
   const interfaces = os.networkInterfaces();
@@ -141,15 +141,13 @@ function getLocalIP() {
   return 'localhost';
 }
 
+// --- 3. 启动监听 ---
+// 微信云托管必须监听 '0.0.0.0' 地址
 server.listen(PORT, '0.0.0.0', () => {
   const localIP = getLocalIP();
-  console.log(`\n✅ 服务器已启动！`);
-  console.log(`\n📱 移动端访问方式：`);
-  console.log(`   1. 确保手机和电脑连接在同一个 WiFi 网络`);
-  console.log(`   2. 在手机浏览器打开：http://${localIP}:${PORT}`);
-  console.log(`\n💻 电脑端访问：`);
-  console.log(`   http://localhost:${PORT}`);
-  console.log(`\n💡 提示：如果移动端无法访问，请检查防火墙设置`);
-  console.log(`   环境变量 DEEPSEEK_API_KEY 已${process.env.DEEPSEEK_API_KEY ? '✅ 设置' : '❌ 未设置'}\n`);
+  console.log(`\n🚀 对联生成器服务器已在端口 ${PORT} 启动！`);
+  console.log(`\n🔗 访问链接：`);
+  console.log(`   本地访问: http://localhost:${PORT}`);
+  console.log(`   局域网访问: http://${localIP}:${PORT}`);
+  console.log(`\n💡 环境变量状态: ${process.env.DEEPSEEK_API_KEY ? '✅ 已就绪' : '❌ 未检测到 DeepSeek Key'}\n`);
 });
-

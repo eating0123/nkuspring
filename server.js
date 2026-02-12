@@ -2,15 +2,14 @@
  * 生产环境通用服务器 (适配 微信云托管 / Zeabur / Vercel)
  * - 静态服务：GET /
  * - 接口服务：POST /api/generate
- *
- * 运行：node server.js
+ * - 微信验证：GET /beaec79ae333ba4c3e53452c470b6f70.txt
  */
 
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
 
-// --- 1. 自动读取 .env 文件 (仅用于本地开发) ---
+// --- 1. 自动读取 .env 文件 ---
 try {
   const envPath = path.join(__dirname, '.env');
   if (fs.existsSync(envPath)) {
@@ -28,14 +27,10 @@ try {
       }
     });
   }
-} catch (e) {
-  // 生产环境通常不使用 .env 文件，忽略即可
-}
+} catch (e) {}
 
 const apiGenerate = require("./api/generate.js");
 
-// --- 2. 端口配置 (核心修改) ---
-// 微信云托管必须监听 80 端口，这里通过 process.env.PORT 自动适配
 const PORT = Number(process.env.PORT || 80); 
 const INDEX_PATH = path.join(__dirname, "index.html");
 
@@ -69,33 +64,39 @@ const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host}`);
 
-    // 静态主页
+    // 1. 静态主页
     if (req.method === "GET" && url.pathname === "/") {
       const html = fs.readFileSync(INDEX_PATH, "utf8");
       return send(res, 200, { "Content-Type": "text/html; charset=utf-8" }, html);
     }
 
-    // 健康检查 (云托管部署时会用到)
+    // 2. 健康检查
     if (req.method === "GET" && (url.pathname === "/healthz" || url.pathname === "/check")) {
       return send(res, 200, { "Content-Type": "text/plain; charset=utf-8" }, "ok");
     }
 
-    // API 接口
+    // ---------------------------------------------------------
+    // 3. 微信部署验证文件 (新增部分)
+    // ---------------------------------------------------------
+    if (req.method === "GET" && url.pathname === "/beaec79ae333ba4c3e53452c470b6f70.txt") {
+      return send(
+        res, 
+        200, 
+        { "Content-Type": "text/plain; charset=utf-8" }, 
+        "468443f13357ffa505c1afc4d51e9adb0f9f30b6"
+      );
+    }
+
+    // 4. API 接口
     if (url.pathname === "/api/generate") {
       if (req.method !== "POST") {
-        return send(
-          res,
-          405,
-          { "Content-Type": "application/json; charset=utf-8" },
-          JSON.stringify({ error: "Method Not Allowed" })
-        );
+        return send(res, 405, { "Content-Type": "application/json; charset=utf-8" }, JSON.stringify({ error: "Method Not Allowed" }));
       }
-
       req.body = await readJson(req);
       return apiGenerate(req, res);
     }
 
-    // 静态资源文件支持 (CSS/JS)
+    // 5. 静态资源文件支持
     if (req.method === "GET") {
       const safePath = path.normalize(url.pathname).replace(/^(\.\.[/\\])+/, "");
       const filePath = path.join(__dirname, safePath);
@@ -111,43 +112,25 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
-    return send(
-      res,
-      404,
-      { "Content-Type": "application/json; charset=utf-8" },
-      JSON.stringify({ error: "Not Found" })
-    );
+    return send(res, 404, { "Content-Type": "application/json; charset=utf-8" }, JSON.stringify({ error: "Not Found" }));
   } catch (e) {
-    return send(
-      res,
-      500,
-      { "Content-Type": "application/json; charset=utf-8" },
-      JSON.stringify({ error: e?.message || "Server error" })
-    );
+    return send(res, 500, { "Content-Type": "application/json; charset=utf-8" }, JSON.stringify({ error: e?.message || "Server error" }));
   }
 });
 
-// 获取本机 IP 方便测试
 function getLocalIP() {
   const os = require('os');
   const interfaces = os.networkInterfaces();
   for (const name of Object.keys(interfaces)) {
     for (const iface of interfaces[name]) {
-      if (iface.family === 'IPv4' && !iface.internal) {
-        return iface.address;
-      }
+      if (iface.family === 'IPv4' && !iface.internal) return iface.address;
     }
   }
   return 'localhost';
 }
 
-// --- 3. 启动监听 ---
-// 微信云托管必须监听 '0.0.0.0' 地址
 server.listen(PORT, '0.0.0.0', () => {
   const localIP = getLocalIP();
-  console.log(`\n🚀 对联生成器服务器已在端口 ${PORT} 启动！`);
-  console.log(`\n🔗 访问链接：`);
-  console.log(`   本地访问: http://localhost:${PORT}`);
-  console.log(`   局域网访问: http://${localIP}:${PORT}`);
-  console.log(`\n💡 环境变量状态: ${process.env.DEEPSEEK_API_KEY ? '✅ 已就绪' : '❌ 未检测到 DeepSeek Key'}\n`);
+  console.log(`\n🚀 服务器已启动！`);
+  console.log(`   公网/局域网访问: http://${localIP}:${PORT}`);
 });

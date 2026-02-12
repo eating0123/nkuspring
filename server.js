@@ -64,10 +64,11 @@ function readJson(req) {
 const server = http.createServer(async (req, res) => {
   try {
     // 获取请求路径（兼容低版本 Node）
-    const protocol = req.headers['x-forwarded-proto'] || 'http';
-    const host = req.headers.host;
-    const url = new URL(req.url, `${protocol}://${host}`);
-
+    //const protocol = req.headers['x-forwarded-proto'] || 'http';
+    //const host = req.headers.host;
+    //const url = new URL(req.url, `${protocol}://${host}`);
+// 🔥 修复：强制使用 localhost，防止微信内部调用因缺少 host 报错
+    const url = new URL(req.url, 'http://localhost');
     // 1. 静态主页
     if (req.method === "GET" && url.pathname === "/") {
       const html = fs.readFileSync(INDEX_PATH, "utf8");

@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>我门难开2026特色对联生成器</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              nkuRed: "#B22222",
+              nkuPurple: "#741B47",
+            },
+            fontFamily: {
+              calligraphy: ['"Ma Shan Zheng"', "ui-serif", "serif"],
+            },
+          },
+        },
+      };
+    </script>
+
+    <link rel="preconnect" href="https://fonts.loli.net" />
+    <link
+      href="https://fonts.loli.net/css2?family=Ma+Shan+Zheng&display=swap"
+      rel="stylesheet"
+    />
+
+    <script src="https://cdn.bootcdn.net/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <style>
+      /* --- 基础样式 --- */
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        background-color: #B22222;
+        color: #ffffff;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+        line-height: 1.6;
+        min-height: 100vh;
+      }
+      
+      /* 顶部提示 */
+      .nku-progress-tip {
+        position: fixed; top: 10px; right: 12px; z-index: 9999;
+        font-size: 12px; color: rgba(255, 255, 255, 0.9);
+        background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255, 255, 255, 0.2);
+        padding: 6px 12px; border-radius: 9999px;
+        transition: opacity 0.5s ease;
+      }
+
+      /* --- 屏幕显示布局 --- */
+      #horizontal-container, #upper-container, #lower-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 0.5rem;
+      }
+      
+      #upper-container, #lower-container {
+        flex-direction: column;
+        padding: 1rem 0.2rem;
+      }
+
+      .vertical-text {
+        writing-mode: vertical-rl;
+        text-orientation: upright;
+        letter-spacing: 0.1em;
+      }
+
+      .couplet-gold {
+        color: #fce38a;
+        font-family: "Ma Shan Zheng", ui-serif, serif;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        line-height: 1.1 !important;
+      }
+      
+      /* --- 卡片样式 --- */
+      #result-card {
+        background: linear-gradient(135deg, #4a0e0e 0%, #881414 100%);
+        background-image: 
+          radial-gradient(ellipse 80% 60% at 50% 50%, transparent 0%, rgba(0,0,0,0.2) 100%),
+          linear-gradient(135deg, #4a0e0e 0%, #881414 100%);
+        border-radius: 20px;
+        border: 1px solid rgba(255, 215, 0, 0.35);
+        box-shadow: 0 12px 36px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.04);
+        padding: 1.75rem 1.5rem 1.25rem;
+        position: relative;
+        overflow: hidden;
+      }
+      
+      .paper-style {
+        background-color: #c02c2c;
+        border: 3px double #fce38a;
+        border-radius: 12px;
+        box-shadow: inset 0 0 10px rgba(0,0,0,0.3);
+      }
+      
+      .paper-horizontal {
+        min-height: 3.5rem;
+        min-width: 10rem;
+      }
+      
+      .paper-vertical {
+        min-height: 16rem;
+        width: 4.5rem;
+      }
+      @media (min-width: 768px) {
+        .paper-vertical { width: 5.5rem; min-height: 20rem; }
+        .paper-horizontal { min-width: 14rem; }
+      }
+      
+      /* 菱形福字 */
+      .diamond-wrap {
+        display: flex; align-items: center; justify-content: center;
+        border: 1px solid rgba(255, 215, 0, 0.3); border-radius: 50%; padding: 6px;
+      }
+      .diamond-fu {
+        width: 64px; height: 64px; background: #8B0000;
+        transform: rotate(45deg);
+        display: flex; align-items: center; justify-content: center;
+        box-shadow: inset 0 0 0 2px rgba(252, 227, 138, 0.35), 0 4px 12px rgba(0,0,0,0.35);
+      }
+      .diamond-fu span {
+        transform: rotate(-45deg);
+        color: #fce38a; font-family: "Ma Shan Zheng", serif;
+        font-size: 2rem; line-height: 1;
+      }
+      @media (min-width: 768px) {
+        .diamond-fu { width: 80px; height: 80px; }
+        .diamond-fu span { font-size: 2.5rem; }
+      }
+      
+      /* 输入框区域 */
+      #input-container {
+        background: linear-gradient(135deg, #4a0e0e 0%, #9e1c1c 100%);
+        border-radius: 20px; border: 1px solid rgba(255, 215, 0, 0.3);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        padding: 1.5rem;
+      }
+      .input-slot {
+        background: rgba(0, 0, 0, 0.25);
+        border: 1px solid rgba(252, 227, 138, 0.2);
+        border-radius: 12px; color: #fce8c4;
+        padding: 0.8rem; width: 100%;
+        font-size: 1rem;
+      }
+      .input-slot:focus { outline: none; border-color: rgba(252, 227, 138, 0.6); }
+      
+      .btn-primary {
+        background: linear-gradient(to bottom, #fce38a, #f38181);
+        color: #5e0a0a; font-family: "Ma Shan Zheng", serif;
+        font-size: 1.25rem; border-radius: 12px;
+        padding: 0.8rem; width: 100%;
+        box-shadow: 0 0 15px rgba(252, 227, 138, 0.4);
+      }
+      .btn-secondary {
+        background: transparent; border: 1px solid #fce38a;
+        color: #fce38a; border-radius: 12px;
+        padding: 0.7rem; width: 100%; margin-top: 1rem;
+      }
+      
+      /* 消息提示框 */
+      #msg {
+        background: rgba(0,0,0,0.3);
+        border-radius: 8px;
+        padding: 8px;
+        color: #fce38a;
+        margin-top: 10px;
+        font-size: 12px;
+        text-align: center;
+      }
+
+      @media (max-width: 768px) {
+        .vertical-text { font-size: 1.5rem !important; }
+      }
+    </style>
+  </head>
+
+  <body class="min-h-screen bg-nkuRed text-white">
+    
+    <div id="nkuProgressTip" class="nku-progress-tip">加载中…</div>
+
+    <div class="relative overflow-hidden min-h-screen py-6 px-4">
+      <div class="pointer-events-none absolute -top-24 -left-24 h-72 w-72 rounded-full bg-nkuPurple/25 blur-3xl"></div>
+      <div class="pointer-events-none absolute inset-0 opacity-[0.1]" style="background-image: radial-gradient(#741b47 1px, transparent 1px); background-size: 20px 20px;"></div>
+
+      <main class="relative mx-auto max-w-5xl md:grid md:grid-cols-5 md:gap-8">
+        
+        <div id="input-container" class="md:col-span-2 order-1 mb-6 md:mb-0 flex flex-col">
+          <h2 class="text-center text-2xl text-[#fce38a] font-calligraphy mb-2">我门难开 2026 对联生成器</h2>
+          <p class="text-center text-xs text-[#fce38a]/70 mb-6">输入关键词，一键生成专属南开对联</p>
+          
+          <div class="space-y-4 flex-1">
+            <div>
+              <label class="text-[#fce38a]/90 text-sm mb-1 block">关键词1</label>
+              <input id="k1" class="input-slot" placeholder="比如 马蹄湖 / 早八 / 没抢到课" />
+            </div>
+            <div>
+              <label class="text-[#fce38a]/90 text-sm mb-1 block">关键词2</label>
+              <input id="k2" class="input-slot" placeholder="比如 暴富 / 顺利发刊 / 躺平" />
+            </div>
+
+            <button id="btnGenerate" class="btn-primary mt-4">
+              <span id="btnText">一键求符</span>
+            </button>
+            <button id="btnExport" class="btn-secondary" disabled>导出灵符</button>
+            <div id="msg" class="hidden"></div>
+          </div>
+        </div>
+
+        <div class="md:col-span-3 order-2">
+          <div id="result-card">
+            <div class="text-center mb-6 border-b border-white/20 pb-2">
+              <h2 class="text-3xl text-[#fce38a] font-calligraphy drop-shadow-md">2026 南开特色对联</h2>
+              <p class="text-[10px] tracking-[0.2em] text-[#fce38a]/80 mt-1">WOMENNANKAI · NKU</p>
+            </div>
+
+            <div class="flex justify-center mb-8">
+              <div id="horizontal-container" class="paper-style paper-horizontal">
+                <span id="horizontal" class="couplet-gold text-2xl tracking-[0.2em]">南开转运</span>
+              </div>
+            </div>
+
+            <div class="flex justify-center gap-4 md:gap-10 items-center">
+              
+              <div id="upper-container" class="paper-style paper-vertical">
+                <span id="upper" class="vertical-text couplet-gold text-2xl md:text-3xl">请输入关键词</span>
+              </div>
+
+              <div class="diamond-wrap">
+                <div class="diamond-fu"><span>福</span></div>
+              </div>
+
+              <div id="lower-container" class="paper-style paper-vertical">
+                <span id="lower" class="vertical-text couplet-gold text-2xl md:text-3xl">一键求灵符</span>
+              </div>
+            
+            </div>
+
+            <div class="mt-8 text-center text-[10px] text-[#fce38a]/40">
+              © 2026 我门难开 | 办南开师生喜闻乐见的公众号
+            </div>
+          </div>
+          
+          <div class="mt-4 text-center text-xs text-white/60">
+            生成后点击「导出灵符」长按保存发朋友圈
+          </div>
+        </div>
+
+      </main>
+    </div>
+
+    <script>
+      const el = (id) => document.getElementById(id);
+      
+      const btnGenerate = el("btnGenerate");
+      const btnExport = el("btnExport");
+      const btnText = el("btnText");
+      const msg = el("msg");
+      const tip = el("nkuProgressTip");
+      
+      const k1 = el("k1");
+      const k2 = el("k2");
+      const upper = el("upper");
+      const lower = el("lower");
+      const horizontal = el("horizontal");
+      const poster = el("result-card");
+
+      window.addEventListener("load", () => {
+         if(tip) {
+            tip.textContent = "加载完成";
+            setTimeout(() => { tip.style.opacity = '0'; }, 500);
+            setTimeout(() => { tip.style.display = 'none'; }, 1000);
+         }
+      });
+
+      function setLoading(isLoading) {
+        btnGenerate.disabled = isLoading;
+        btnText.textContent = isLoading ? "炼制中..." : "一键求符";
+      }
+
+      function showMsg(text) {
+        msg.classList.remove("hidden");
+        msg.textContent = text;
+      }
+
+      // 生成对联
+      btnGenerate.addEventListener("click", async () => {
+        msg.classList.add("hidden");
+        setLoading(true);
+        
+        try {
+          const res = await fetch("/api/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              keyword1: k1.value.trim(),
+              keyword2: k2.value.trim()
+            }),
+          });
+          
+          if (!res.ok) throw new Error("服务器繁忙，请稍后再试");
+          
+          const data = await res.json();
+          
+          upper.innerText = (data.upper || "上联生成失败").replace(/\s+/g, "").trim();
+          lower.innerText = (data.lower || "下联生成失败").replace(/\s+/g, "").trim();
+          horizontal.innerText = (data.horizontal || "转运成功").trim();
+          
+          btnExport.disabled = false;
+          showMsg("灵符已生成！请点击「导出灵符」保存图片。");
+
+        } catch (e) {
+          showMsg(e.message || "生成失败");
+        } finally {
+          setLoading(false);
+        }
+      });
+
+      // 导出图片
+      btnExport.addEventListener("click", () => {
+        btnExport.textContent = "绘制中...";
+        btnExport.disabled = true;
+
+        const originalStyle = poster.style.cssText;
+        
+        html2canvas(poster, {
+          useCORS: true,
+          scale: 3, 
+          backgroundColor: null,
+          scrollY: -window.scrollY,
+          onclone: (clonedDoc) => {
+            // ============================================================
+            // 🔧 参数确认区
+            // ============================================================
+            // 对联底部留白 (你觉得这个位置正好)
+            const verticalSqueeze = '20px'; 
+            const horizontalSqueeze = '20px';
+            
+            // ============================================================
+
+            // 1. 去除圆角 (直角风格)
+            const clonedPoster = clonedDoc.getElementById('result-card');
+            if (clonedPoster) {
+                clonedPoster.style.setProperty('border-radius', '0px', 'important');
+            }
+            
+            // 2. 竖排对联修正
+            const vContainers = clonedDoc.querySelectorAll('#upper-container, #lower-container');
+            vContainers.forEach(c => {
+              c.style.setProperty('display', 'flex', 'important');
+              c.style.setProperty('flex-direction', 'column', 'important');
+              c.style.setProperty('justify-content', 'center', 'important');
+              c.style.setProperty('align-items', 'center', 'important');
+              c.style.setProperty('padding-top', '0px', 'important');
+              c.style.setProperty('padding-bottom', verticalSqueeze, 'important');
+              c.style.setProperty('box-sizing', 'border-box', 'important');
+            });
+            
+            const vTexts = clonedDoc.querySelectorAll('#upper, #lower');
+            vTexts.forEach(t => {
+                t.style.margin = '0 !important';
+                t.style.transform = 'none !important'; 
+                t.style.writingMode = 'vertical-rl';
+                t.style.textOrientation = 'upright';
+            });
+
+            // 3. 横批修正
+            const hContainer = clonedDoc.getElementById('horizontal-container');
+            if(hContainer) {
+                hContainer.style.setProperty('display', 'flex', 'important');
+                hContainer.style.setProperty('justify-content', 'center', 'important');
+                hContainer.style.setProperty('align-items', 'center', 'important');
+                hContainer.style.setProperty('padding-top', '0px', 'important');
+                hContainer.style.setProperty('padding-bottom', horizontalSqueeze, 'important');
+            }
+            
+            // 4. 福字修正 (本次只改了这里)
+            const diamondFu = clonedDoc.querySelector('.diamond-fu');
+            if(diamondFu) {
+                diamondFu.style.setProperty('display', 'flex', 'important');
+                diamondFu.style.setProperty('align-items', 'center', 'important');
+                diamondFu.style.setProperty('justify-content', 'center', 'important');
+                diamondFu.style.setProperty('padding', '0px', 'important'); 
+
+                const fuSpan = diamondFu.querySelector('span');
+                if (fuSpan) {
+                    fuSpan.style.setProperty('display', 'block', 'important');
+                    fuSpan.style.setProperty('position', 'relative', 'important');
+                    
+                    // ★★★ 改动点：从 -14px 改到了 -22px，大幅上提 ★★★
+                    fuSpan.style.setProperty('margin-top', '-22px', 'important'); 
+                    
+                    // 保持向左微调
+                    fuSpan.style.setProperty('left', '0px', 'important');
+                    fuSpan.style.setProperty('margin-left', '-23px', 'important');
+                    
+                    fuSpan.style.setProperty('line-height', '1', 'important');
+                }
+            }
+          }
+        }).then(canvas => {
+          poster.style.cssText = originalStyle;
+          
+          const link = document.createElement('a');
+          link.download = `我门难开2026赛博转运符_${Date.now()}.png`;
+          link.href = canvas.toDataURL('image/png');
+          link.click();
+          
+          btnExport.textContent = "导出灵符";
+          btnExport.disabled = false;
+          showMsg("图片已生成，请查看下载或长按保存");
+        }).catch(err => {
+          console.error("截图失败:", err);
+          btnExport.textContent = "导出失败";
+          btnExport.disabled = false;
+          showMsg("导出失败，请手动截图");
+        });
+      });
+    </script>
+  </body>
+</html>

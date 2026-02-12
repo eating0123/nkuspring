@@ -1,0 +1,12 @@
+{
+  "name": "nku-cyber-spring-couplets",
+  "private": true,
+  "version": "0.1.0",
+  "description": "南开大学赛博春联生成器（零依赖本地预览）",
+  "scripts": {
+    "dev": "export $(grep -v '^#' .env | xargs) 2>/dev/null && node server.js || node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

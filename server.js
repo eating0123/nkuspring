@@ -2,7 +2,8 @@
  * 生产环境通用服务器 (适配 微信云托管 / Zeabur / Vercel)
  * - 静态服务：GET /
  * - 接口服务：POST /api/generate
- * - 微信验证：GET /beaec79ae333ba4c3e53452c470b6f70.txt
+ * - 微信验证：GET /beaec79ae333ba4c3e53452c470b6f70.txt (申诉用)
+ * - 小程序验证：GET /ZF32dQh8cA.txt (业务域名用)
  */
 
 const http = require("http");
@@ -62,7 +63,10 @@ function readJson(req) {
 
 const server = http.createServer(async (req, res) => {
   try {
-    const url = new URL(req.url, `http://${req.headers.host}`);
+    // 获取请求路径（兼容低版本 Node）
+    const protocol = req.headers['x-forwarded-proto'] || 'http';
+    const host = req.headers.host;
+    const url = new URL(req.url, `${protocol}://${host}`);
 
     // 1. 静态主页
     if (req.method === "GET" && url.pathname === "/") {
@@ -76,36 +80,52 @@ const server = http.createServer(async (req, res) => {
     }
 
     // ---------------------------------------------------------
-    // 3. 微信部署验证文件 (新增部分)
+    // 3. 微信部署验证文件 (旧：用于申诉)
     // ---------------------------------------------------------
     if (req.method === "GET" && url.pathname === "/beaec79ae333ba4c3e53452c470b6f70.txt") {
+      return send(res, 200, { "Content-Type": "text/plain; charset=utf-8" }, "468443f13357ffa505c1afc4d51e9adb0f9f30b6");
+    }
+
+    // ---------------------------------------------------------
+    // 4. 小程序业务域名验证文件 (🔥 新增：用于 web-view 绑定)
+    // ---------------------------------------------------------
+    // ⚠️ 这个文件名必须和你下载的一模一样，内容也是！
+    if (req.method === "GET" && url.pathname === "/ZF32dQh8cA.txt") {
       return send(
         res, 
         200, 
         { "Content-Type": "text/plain; charset=utf-8" }, 
-        "468443f13357ffa505c1afc4d51e9adb0f9f30b6"
+        "17c20564a3d6c5fa506468d339dcea41" 
       );
     }
 
-    // 4. API 接口
+    // 5. API 接口
     if (url.pathname === "/api/generate") {
       if (req.method !== "POST") {
         return send(res, 405, { "Content-Type": "application/json; charset=utf-8" }, JSON.stringify({ error: "Method Not Allowed" }));
       }
-      req.body = await readJson(req);
-      return apiGenerate(req, res);
+      try {
+        req.body = await readJson(req);
+        return await apiGenerate(req, res);
+      } catch (err) {
+        return send(res, 400, { "Content-Type": "application/json; charset=utf-8" }, JSON.stringify({ error: err.message }));
+      }
     }
 
-    // 5. 静态资源文件支持
+    // 6. 静态资源文件支持 (兜底)
     if (req.method === "GET") {
+      // 安全处理路径，防止目录穿越
       const safePath = path.normalize(url.pathname).replace(/^(\.\.[/\\])+/, "");
+      // 尝试匹配根目录下的文件
       const filePath = path.join(__dirname, safePath);
-      if (filePath.startsWith(__dirname) && fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+      
+      if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
         const ext = path.extname(filePath).toLowerCase();
         const type =
           ext === ".html" ? "text/html; charset=utf-8" :
           ext === ".js" ? "text/javascript; charset=utf-8" :
           ext === ".css" ? "text/css; charset=utf-8" : 
+          ext === ".txt" ? "text/plain; charset=utf-8" : // 确保 txt 文件也能被直接读取
           "application/octet-stream";
         const buf = fs.readFileSync(filePath);
         return send(res, 200, { "Content-Type": type }, buf);
@@ -114,6 +134,7 @@ const server = http.createServer(async (req, res) => {
 
     return send(res, 404, { "Content-Type": "application/json; charset=utf-8" }, JSON.stringify({ error: "Not Found" }));
   } catch (e) {
+    console.error(e);
     return send(res, 500, { "Content-Type": "application/json; charset=utf-8" }, JSON.stringify({ error: e?.message || "Server error" }));
   }
 });

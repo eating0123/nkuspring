@@ -209,9 +209,9 @@
             </div>
 
             <button id="btnGenerate" class="btn-primary mt-4">
-              <span id="btnText">一键求符</span>
+              <span id="btnText">一键生成</span>
             </button>
-            <button id="btnExport" class="btn-secondary" disabled>导出灵符</button>
+            <button id="btnExport" class="btn-secondary" disabled>导出春联</button>
             <div id="msg" class="hidden"></div>
           </div>
         </div>
@@ -225,7 +225,7 @@
 
             <div class="flex justify-center mb-8">
               <div id="horizontal-container" class="paper-style paper-horizontal">
-                <span id="horizontal" class="couplet-gold text-2xl tracking-[0.2em]">南开转运</span>
+                <span id="horizontal" class="couplet-gold text-2xl tracking-[0.2em]">南开新禧</span>
               </div>
             </div>
 
@@ -240,7 +240,7 @@
               </div>
 
               <div id="lower-container" class="paper-style paper-vertical">
-                <span id="lower" class="vertical-text couplet-gold text-2xl md:text-3xl">一键求灵符</span>
+                <span id="lower" class="vertical-text couplet-gold text-2xl md:text-3xl">一键求春联</span>
               </div>
             
             </div>
@@ -251,7 +251,7 @@
           </div>
           
           <div class="mt-4 text-center text-xs text-white/60">
-            生成后点击「导出灵符」长按保存发朋友圈
+            生成后点击「导出春联」长按保存发朋友圈
           </div>
         </div>
 
@@ -313,10 +313,10 @@
           
           upper.innerText = (data.upper || "上联生成失败").replace(/\s+/g, "").trim();
           lower.innerText = (data.lower || "下联生成失败").replace(/\s+/g, "").trim();
-          horizontal.innerText = (data.horizontal || "转运成功").trim();
+          horizontal.innerText = (data.horizontal || "生成成功").trim();
           
           btnExport.disabled = false;
-          showMsg("灵符已生成！请点击「导出灵符」保存图片。");
+          showMsg("春联已生成！请点击「导出春联」保存图片。");
 
         } catch (e) {
           showMsg(e.message || "生成失败");
@@ -407,11 +407,11 @@
           poster.style.cssText = originalStyle;
           
           const link = document.createElement('a');
-          link.download = `我门难开2026赛博转运符_${Date.now()}.png`;
+          link.download = `我门难开2026特色春联_${Date.now()}.png`;
           link.href = canvas.toDataURL('image/png');
           link.click();
           
-          btnExport.textContent = "导出灵符";
+          btnExport.textContent = "导出春联";
           btnExport.disabled = false;
           showMsg("图片已生成，请查看下载或长按保存");
         }).catch(err => {

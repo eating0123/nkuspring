@@ -67,6 +67,7 @@
         writing-mode: vertical-rl;
         text-orientation: upright;
         letter-spacing: 0.1em;
+        white-space: nowrap; /* 🔥 关键修复：强制不换行，防止变成两列 */
       }
 
       .couplet-gold {
@@ -104,7 +105,12 @@
       
       .paper-vertical {
         min-height: 16rem;
-        width: 4.5rem;
+        /* 🔥 关键修复：移动端宽度从 4.5rem 改为 3rem，紧贴文字，不给换行空间 */
+        width: 3rem; 
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
       @media (min-width: 768px) {
         .paper-vertical { width: 5.5rem; min-height: 20rem; }
@@ -335,7 +341,6 @@
             // ============================================================
             // 🔧 参数确认区
             // ============================================================
-            // 对联底部留白 (你觉得这个位置正好)
             const verticalSqueeze = '20px'; 
             const horizontalSqueeze = '20px';
             
@@ -365,6 +370,8 @@
                 t.style.transform = 'none !important'; 
                 t.style.writingMode = 'vertical-rl';
                 t.style.textOrientation = 'upright';
+                // 🔥 导出时也强制不换行
+                t.style.whiteSpace = 'nowrap';
             });
 
             // 3. 横批修正
@@ -377,7 +384,7 @@
                 hContainer.style.setProperty('padding-bottom', horizontalSqueeze, 'important');
             }
             
-            // 4. 福字修正 (本次只改了这里)
+            // 4. 福字修正
             const diamondFu = clonedDoc.querySelector('.diamond-fu');
             if(diamondFu) {
                 diamondFu.style.setProperty('display', 'flex', 'important');
@@ -389,14 +396,9 @@
                 if (fuSpan) {
                     fuSpan.style.setProperty('display', 'block', 'important');
                     fuSpan.style.setProperty('position', 'relative', 'important');
-                    
-                    // ★★★ 改动点：从 -14px 改到了 -22px，大幅上提 ★★★
                     fuSpan.style.setProperty('margin-top', '-22px', 'important'); 
-                    
-                    // 保持向左微调
                     fuSpan.style.setProperty('left', '0px', 'important');
                     fuSpan.style.setProperty('margin-left', '-23px', 'important');
-                    
                     fuSpan.style.setProperty('line-height', '1', 'important');
                 }
             }
